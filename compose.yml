@@ -46,14 +46,14 @@ services:
     labels:
       traefik.enable: "${TRAEFIK_ENABLE:-true}"
       traefik.docker.network: "${TRAEFIK_DOCKER_NETWORK:-proxy}"
-      traefik.http.routers.wordpress.entrypoints: "${TRAEFIK_ENTRYPOINTS:-websecure}"
-      traefik.http.routers.wordpress.rule: "${TRAEFIK_RULE:-Host(`wordpress.example.com`)}"
-      traefik.http.routers.wordpress.service: "${TRAEFIK_SERVICE_NAME:-wordpress}"
-      traefik.http.routers.wordpress.tls: "${TRAEFIK_TLS:-true}"
-      traefik.http.routers.wordpress.tls.certresolver: "${TRAEFIK_CERTRESOLVER:-cloudflare_resolver}"
-      traefik.http.routers.wordpress.middlewares: "${TRAEFIK_MIDDLEWARES:-security-headers@file}"
-      traefik.http.services.wordpress.loadbalancer.server.port: "${TRAEFIK_SERVICE_PORT:-80}"
-      traefik.http.services.wordpress.loadbalancer.passhostheader: "${TRAEFIK_PASS_HOST_HEADER:-true}"
+      traefik.http.routers.wordpress-app.entrypoints: "${TRAEFIK_ENTRYPOINTS:-websecure}"
+      traefik.http.routers.wordpress-app.rule: "${TRAEFIK_RULE:-Host(`wordpress.example.com`)}"
+      traefik.http.routers.wordpress-app.service: "${TRAEFIK_SERVICE_NAME:-wordpress-app}"
+      traefik.http.routers.wordpress-app.tls: "${TRAEFIK_TLS:-true}"
+      traefik.http.routers.wordpress-app.tls.certresolver: "${TRAEFIK_CERTRESOLVER:-cloudflare_resolver}"
+      traefik.http.routers.wordpress-app.middlewares: "${TRAEFIK_MIDDLEWARES:-security-headers@file}"
+      traefik.http.services.wordpress-app.loadbalancer.server.port: "${TRAEFIK_SERVICE_PORT:-80}"
+      traefik.http.services.wordpress-app.loadbalancer.passhostheader: "${TRAEFIK_PASS_HOST_HEADER:-true}"
 
   mysql:
     image: ${MYSQL_IMAGE:-mysql:8.0}
