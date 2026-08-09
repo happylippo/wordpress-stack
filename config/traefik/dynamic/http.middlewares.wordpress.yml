@@ -1,0 +1,57 @@
+http:
+  middlewares:
+    wordpress:
+      headers:
+        # HSTS
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+        # Allgemeine Sicherheitsheader
+        contentTypeNosniff: true
+        browserXssFilter: false
+        # Wichtig für den WordPress-Editor:
+        # frameDeny darf NICHT aktiviert sein.
+        frameDeny: false
+        referrerPolicy: "strict-origin-when-cross-origin"
+        permissionsPolicy: >-
+          accelerometer=(),
+          autoplay=(),
+          camera=(),
+          display-capture=(),
+          encrypted-media=(),
+          fullscreen=(self),
+          geolocation=(),
+          gyroscope=(),
+          magnetometer=(),
+          microphone=(),
+          midi=(),
+          payment=(),
+          picture-in-picture=(),
+          publickey-credentials-get=(self),
+          screen-wake-lock=(),
+          usb=()
+        customResponseHeaders:
+          # Same-Origin-Framing für den WordPress-Editor erlauben
+          X-Frame-Options: "SAMEORIGIN"
+          Cross-Origin-Opener-Policy: "same-origin-allow-popups"
+          Cross-Origin-Resource-Policy: "same-site"
+          X-Permitted-Cross-Domain-Policies: "none"
+          Content-Security-Policy: >-
+            default-src 'self';
+            base-uri 'self';
+            object-src 'none';
+            frame-ancestors 'self';
+            form-action 'self';
+            script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https:;
+            script-src-attr 'unsafe-inline';
+            style-src 'self' 'unsafe-inline' https:;
+            img-src 'self' data: blob: https:;
+            font-src 'self' data: https:;
+            connect-src 'self' blob: https: wss:;
+            media-src 'self' blob: https:;
+            frame-src 'self' blob: https:;
+            child-src 'self' blob: https:;
+            worker-src 'self' blob:;
+            manifest-src 'self';
+            upgrade-insecure-requests;
