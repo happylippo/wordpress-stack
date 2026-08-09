@@ -1,0 +1,124 @@
+name: ${COMPOSE_PROJECT_NAME:-wordpress-stack}
+
+services:
+  wordpress:
+    image: ${WORDPRESS_IMAGE:-wordpress:php8.3-apache}
+    container_name: ${WORDPRESS_CONTAINER_NAME:-wordpress-app}
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: mysql:3306
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+      WORDPRESS_TABLE_PREFIX: ${WORDPRESS_TABLE_PREFIX:-wp_}
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_REDIS_HOST', 'redis');
+        define('WP_REDIS_PORT', 6379);
+        define('WP_REDIS_DATABASE', ${REDIS_DATABASE:-0});
+        define('WP_REDIS_TIMEOUT', 1);
+        define('WP_REDIS_READ_TIMEOUT', 1);
+        define('WP_REDIS_DISABLED', false);
+        define('DISABLE_WP_CRON', ${WORDPRESS_DISABLE_WP_CRON:-false});
+        define('WP_MEMORY_LIMIT', '${WORDPRESS_MEMORY_LIMIT:-256M}');
+        define('WP_MAX_MEMORY_LIMIT', '${WORDPRESS_MAX_MEMORY_LIMIT:-512M}');
+        define('FORCE_SSL_ADMIN', true);
+        if (isset($$_SERVER['HTTP_X_FORWARDED_PROTO']) && $$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+          $$_SERVER['HTTPS'] = 'on';
+        }
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./config/php/opcache.ini:/usr/local/etc/php/conf.d/10-opcache.ini:ro
+      - ./config/php/uploads.ini:/usr/local/etc/php/conf.d/20-uploads.ini:ro
+    networks:
+      - backend
+      - proxy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1/wp-login.php >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      traefik.enable: "${TRAEFIK_ENABLE:-true}"
+      traefik.docker.network: "${TRAEFIK_DOCKER_NETWORK:-proxy}"
+      traefik.http.routers.wordpress.entrypoints: "${TRAEFIK_ENTRYPOINTS:-websecure}"
+      traefik.http.routers.wordpress.rule: "${TRAEFIK_RULE:-Host(`wordpress.example.com`)}"
+      traefik.http.routers.wordpress.service: "${TRAEFIK_SERVICE_NAME:-wordpress}"
+      traefik.http.routers.wordpress.tls: "${TRAEFIK_TLS:-true}"
+      traefik.http.routers.wordpress.tls.certresolver: "${TRAEFIK_CERTRESOLVER:-cloudflare_resolver}"
+      traefik.http.routers.wordpress.middlewares: "${TRAEFIK_MIDDLEWARES:-security-headers@file}"
+      traefik.http.services.wordpress.loadbalancer.server.port: "${TRAEFIK_SERVICE_PORT:-80}"
+      traefik.http.services.wordpress.loadbalancer.passhostheader: "${TRAEFIK_PASS_HOST_HEADER:-true}"
+
+  mysql:
+    image: ${MYSQL_IMAGE:-mysql:8.0}
+    container_name: ${MYSQL_CONTAINER_NAME:-wordpress-db}
+    restart: unless-stopped
+    command:
+      - --default-authentication-plugin=caching_sha2_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=${MYSQL_INNODB_BUFFER_POOL_SIZE:-256M}
+      - --max-connections=${MYSQL_MAX_CONNECTIONS:-100}
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./config/mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:8-alpine}
+    container_name: ${REDIS_CONTAINER_NAME:-wordpress-redis}
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - ${REDIS_MAXMEMORY_POLICY:-allkeys-lru}
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  backend:
+    name: ${BACKEND_NETWORK_NAME:-wordpress-backend}
+    internal: true
+  proxy:
+    name: ${TRAEFIK_DOCKER_NETWORK:-proxy}
+    external: true
+
+volumes:
+  wordpress_data:
+    name: ${WORDPRESS_VOLUME_NAME:-wordpress-data}
+  mysql_data:
+    name: ${MYSQL_VOLUME_NAME:-wordpress-mysql-data}
+  redis_data:
+    name: ${REDIS_VOLUME_NAME:-wordpress-redis-data}
