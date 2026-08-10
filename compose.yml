@@ -2,7 +2,11 @@ name: ${COMPOSE_PROJECT_NAME:-wordpress-stack}
 
 services:
   wordpress:
-    image: ${WORDPRESS_IMAGE:-wordpress:php8.3-apache}
+    build:
+      context: .
+      args:
+        WORDPRESS_IMAGE: ${WORDPRESS_IMAGE:-wordpress:php8.3-apache}
+    image: ${WORDPRESS_CUSTOM_IMAGE:-wordpress-stack:local}
     container_name: ${WORDPRESS_CONTAINER_NAME:-wordpress-app}
     restart: unless-stopped
     depends_on:
@@ -11,6 +15,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      TRUSTED_PROXY_SUBNET: ${TRUSTED_PROXY_SUBNET:-172.16.0.0/12}
       WORDPRESS_DB_HOST: mysql:3306
       WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
       WORDPRESS_DB_USER: ${MYSQL_USER}
@@ -34,6 +39,7 @@ services:
       - wordpress_data:/var/www/html
       - ./config/php/opcache.ini:/usr/local/etc/php/conf.d/10-opcache.ini:ro
       - ./config/php/uploads.ini:/usr/local/etc/php/conf.d/20-uploads.ini:ro
+      - ./config/apache/remoteip.conf:/etc/apache2/conf-enabled/remoteip.conf:ro
     networks:
       - backend
       - proxy
