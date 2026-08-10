@@ -9,6 +9,7 @@ GitHub-fähiger WordPress-Stack mit WordPress (Apache/PHP 8.3), MySQL 8, Redis 8
 - `redis`: Redis 8 als Object Cache, nur im internen Backend-Netzwerk
 - `proxy`: vorhandenes externes Docker-Netzwerk für Traefik
 - `backend`: internes Docker-Netzwerk ohne externen Zugriff
+- Apache `mod_remoteip`: stellt hinter Cloudflare und Traefik die echte Besucher-IP wieder her
 
 ## Installation
 
@@ -43,12 +44,20 @@ Falls das externe Traefik-Netzwerk noch nicht existiert:
 docker network create proxy
 ```
 
-Stack prüfen und starten:
+Beim ersten Start wird das angepasste WordPress-Image gebaut:
 
 ```bash
 docker compose config
+docker compose up -d --build
+```
+
+Bei späteren normalen Starts reicht:
+
+```bash
 docker compose up -d
 ```
+
+`--build` ist nur erforderlich, wenn sich das `Dockerfile`, `docker-entrypoint-realip.sh` oder andere in das Image eingebaute Dateien ändern. Änderungen an `.env` erfordern normalerweise keinen erneuten Image-Build.
 
 Status und Logs:
 
@@ -66,7 +75,7 @@ TRAEFIK_ENABLE=true
 TRAEFIK_DOCKER_NETWORK=proxy
 TRAEFIK_ENTRYPOINTS=websecure
 TRAEFIK_RULE=Host(`wordpress.example.com`)
-TRAEFIK_SERVICE_NAME=wordpress
+TRAEFIK_SERVICE_NAME=wordpress-app
 TRAEFIK_SERVICE_PORT=80
 TRAEFIK_TLS=true
 TRAEFIK_CERTRESOLVER=cloudflare_resolver
@@ -81,6 +90,59 @@ TRAEFIK_MIDDLEWARES=security-headers@file,crowdsec@file
 ```
 
 Die Compose-Konfiguration setzt außerdem `FORCE_SSL_ADMIN` und berücksichtigt `X-Forwarded-Proto`, damit WordPress HTTPS hinter Traefik korrekt erkennt.
+
+## Echte Client-IP hinter Cloudflare und Traefik
+
+Die Request-Kette ist typischerweise:
+
+```text
+Besucher -> Cloudflare -> Traefik -> WordPress/Apache
+```
+
+Ohne zusätzliche Konfiguration sieht Apache nur die IP-Adresse des vorgeschalteten Traefik-Containers. Der Stack aktiviert deshalb Apache `mod_remoteip` und verwendet den von Cloudflare gesetzten Header `CF-Connecting-IP`.
+
+Die vertrauenswürdigen Proxy-Adressen werden in `.env` als kommaseparierte Liste angegeben. IPv4 und IPv6 können gemeinsam verwendet werden:
+
+```dotenv
+TRUSTED_PROXIES=172.31.191.254,fd00:1:be:a:7001:0:3e:7fff
+```
+
+Beim Containerstart erzeugt `docker-entrypoint-realip.sh` daraus für jede Adresse eine eigene Apache-Direktive:
+
+```apache
+RemoteIPTrustedProxy 172.31.191.254
+RemoteIPTrustedProxy fd00:1:be:a:7001:0:3e:7fff
+```
+
+Auch CIDR-Netze können eingetragen werden, beispielsweise:
+
+```dotenv
+TRUSTED_PROXIES=172.31.128.0/18,fd00:1:be:a:7001:0:3e:7000/116
+```
+
+Aus Sicherheitsgründen sollten nur tatsächlich vertrauenswürdige Traefik-Adressen bzw. möglichst eng gefasste Docker-Netze eingetragen werden. Andernfalls könnte ein nicht vertrauenswürdiger Client versuchen, den `CF-Connecting-IP`-Header zu manipulieren.
+
+Nach der Verarbeitung durch `mod_remoteip` enthält Apache `%a` die echte Besucher-IP. PHP und WordPress erhalten diese ebenfalls über `REMOTE_ADDR`.
+
+Prüfen kannst du das über:
+
+```bash
+docker compose logs -f wordpress
+```
+
+Nach einer erstmaligen Aktivierung oder Änderung am Dockerfile/EntryPoint:
+
+```bash
+docker compose up -d --build
+```
+
+Änderst du später lediglich `TRUSTED_PROXIES` in `.env`, reicht normalerweise:
+
+```bash
+docker compose up -d
+```
+
+Compose erstellt den WordPress-Container bei geänderter Environment-Konfiguration neu und das EntryPoint-Script generiert die Apache-Proxy-Konfiguration beim Start erneut.
 
 ## Redis Object Cache
 
@@ -166,8 +228,11 @@ Da Redis hier als Cache und nicht als primärer Datenspeicher verwendet wird, is
 
 ## Updates
 
+Neue Basis-Images herunterladen und das eigene WordPress-Image neu bauen:
+
 ```bash
 docker compose pull
+docker compose build --pull wordpress
 docker compose up -d
 docker image prune
 ```
@@ -180,5 +245,6 @@ Vor Updates sollte ein getestetes Backup vorhanden sein.
 - MySQL und Redis besitzen keine veröffentlichten Host-Ports.
 - Das Backend-Netzwerk ist als `internal` markiert.
 - Nur WordPress hängt zusätzlich im externen Traefik-Netzwerk.
+- `CF-Connecting-IP` wird nur über explizit konfigurierte vertrauenswürdige Proxies akzeptiert.
 - Datenbankpasswörter gehören ausschließlich in die lokale `.env`.
 - Für Produktion sollten regelmäßige Backups und Wiederherstellungstests eingerichtet werden.
