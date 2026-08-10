@@ -15,7 +15,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      TRUSTED_PROXY_SUBNET: ${TRUSTED_PROXY_SUBNET:-172.16.0.0/12}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       WORDPRESS_DB_HOST: mysql:3306
       WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
       WORDPRESS_DB_USER: ${MYSQL_USER}
