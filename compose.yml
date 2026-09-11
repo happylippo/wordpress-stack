@@ -5,7 +5,7 @@ services:
     build:
       context: .
       args:
-        WORDPRESS_IMAGE: ${WORDPRESS_IMAGE:-wordpress:php8.3-apache}
+        WORDPRESS_IMAGE: ${WORDPRESS_IMAGE:-wordpress:php8.5-apache}
     image: ${WORDPRESS_CUSTOM_IMAGE:-wordpress-stack:local}
     container_name: ${WORDPRESS_CONTAINER_NAME:-wordpress-app}
     restart: unless-stopped
