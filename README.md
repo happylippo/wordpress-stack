@@ -1,10 +1,10 @@
 # WordPress Docker Stack
 
-GitHub-fähiger WordPress-Stack mit WordPress (Apache/PHP 8.3), MySQL 8, Redis 8, OPcache und vollständig per `.env` konfigurierbaren Traefik-Labels.
+GitHub-fähiger WordPress-Stack mit WordPress (Apache/PHP 8.5), MySQL 8, Redis 8, OPcache und vollständig per `.env` konfigurierbaren Traefik-Labels.
 
 ## Architektur
 
-- `wordpress`: WordPress mit Apache und PHP 8.3
+- `wordpress`: WordPress mit Apache und PHP 8.5
 - `mysql`: MySQL 8, nur im internen Backend-Netzwerk
 - `redis`: Redis 8 als Object Cache, nur im internen Backend-Netzwerk
 - `proxy`: vorhandenes externes Docker-Netzwerk für Traefik
